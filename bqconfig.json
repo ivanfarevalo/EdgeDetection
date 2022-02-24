@@ -1,0 +1,1 @@
+{"Inputs": ["image"], "Name": "EdgeDetection", "Author": "Ivan", "Outputs": ["image"], "Output_names": ["Edge Image"], "Description": "This module finds edges in images"}
