@@ -50,13 +50,17 @@ class PythonScriptWrapper(object):
             print(node.tag, node.attrib)
             if field == 'inputs' and node.attrib['name'] == 'inputs':
 
-                for input in node:
-                    print(input.tag, input.attrib)
-                    if input.attrib['name'] == 'resource_url':
-                        resource_ulr = bq.load(self.options.resource_url)
-                        resource_name = resource_ulr.__dict__['name']
-                        resource_dict = {'resource_url': resource_ulr, 'resource_name':resource_name}
-                        xml_data.append(resource_dict)
+                for child in node.iter():
+                    try:
+                        if(child.attrib['name']=='accepted_type' and child.attrib['value']=='image'):
+                            print("INPUT OF TYPE IMAGE!")
+
+                            resource_ulr = bq.load(self.options.resource_url)
+                            resource_name = resource_ulr.__dict__['name']
+                            resource_dict = {'resource_url': resource_ulr, 'resource_name':resource_name}
+                            xml_data.append(resource_dict)
+                    except KeyError:
+                        pass
 
             elif field == 'outputs' and node.attrib['name'] == 'outputs':
 
