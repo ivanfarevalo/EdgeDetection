@@ -47,12 +47,13 @@ class PythonScriptWrapper(object):
         xml_data = []
 
         for node in self.root:  # Iterate tree to parse necessary information
-            # print(child.tag, child.attrib)
+            print(node.tag, node.attrib)
             if field == 'inputs' and node.attrib['name'] == 'inputs':
 
                 for input in node:
+                    print(input.tag, input.attrib)
                     if input.attrib['name'] == 'resource_url':
-                        resource_ulr = bq.load(self.options.resourceURL)
+                        resource_ulr = bq.load(self.options.resource_url)
                         resource_name = resource_ulr.__dict__['name']
                         resource_dict = {'resource_url': resource_ulr, 'resource_name':resource_name}
                         xml_data.append(resource_dict)
@@ -86,7 +87,7 @@ class PythonScriptWrapper(object):
             log.info("Resource meta: %s" % (input['resource_url']))
             cwd = os.getcwd()
             log.info("Current work directory: %s" % (cwd))
-            result = fetch_blob(bq, self.options.resourceURL, dest=os.path.join(cwd, input['resource_name']))
+            result = fetch_blob(bq, self.options.resource_url, dest=os.path.join(cwd, input['resource_name']))
             log.info(f"Output of fetch blob in line 87 is : {result}")
 
     #        if '.gz' in self.image_name:
@@ -289,7 +290,7 @@ class PythonScriptWrapper(object):
         parser.add_option('--user', dest="user")
         parser.add_option('--pwd', dest="pwd")
         parser.add_option('--root', dest="root")
-        parser.add_option('--resource_url', dest="resourceURL")
+#        parser.add_option('--resource_url', dest="resourceURL")
 
         (options, args) = parser.parse_args()
 
@@ -302,12 +303,10 @@ class PythonScriptWrapper(object):
 
         try:  # pull out the mex
 
-            if not options.resourceURL:
-                options.resourceURL = sys.argv[1]
             if not options.mexURL:
-                options.mexURL = sys.argv[2]
+                options.mexURL = sys.argv[-2]
             if not options.token:
-                options.token = sys.argv[3]
+                options.token = sys.argv[-1]
         except IndexError:  # no argv were set
             pass
 
