@@ -91,7 +91,23 @@ class PythonScriptWrapper(object):
             # print(node.tag, node.attrib)
             if node.attrib['name'] == 'outputs':
                 for output in node:
-                    if output.attrib['name'] == 'OutImage':
+                    try:
+                        if (output.attrib['type'] == 'image'):
+                            output.set('value', out_xml_value)
+                            output_xml = ET.tostring(output).decode('utf-8')
+                            xml_data.append(output_xml)
+                        elif (output.attrib['type'] == 'table'):
+                            
+                            output.set('value', out_xml_value)
+                            output_xml = ET.tostring(output).decode('utf-8')
+                            xml_data.append(output_xml)
+                        elif (output.attrib['type'] == 'resource'):
+                            
+                            output.set('value', out_xml_value)
+                            output_xml = ET.tostring(output).decode('utf-8')
+                            xml_data.append(output_xml)
+                    except KeyError: # If no type mentioned
+                        
                         output.set('value', out_xml_value)
                         output_xml = ET.tostring(output).decode('utf-8')
                         xml_data.append(output_xml)
@@ -123,7 +139,7 @@ class PythonScriptWrapper(object):
 
                             # resource_url = bq.load(self.options.resource_url)
 
-                            log.info(f"***** self.options.resource_url: {self.options.resource_url}")
+#                            log.info(f"***** self.options.resource_url: {self.options.resource_url}")
                             
                             resource_obj = bq.load(getattr(self.options, input_name))
                             # bq.load returns bqapi.bqclass.BQImage object. Ex:
@@ -144,6 +160,19 @@ class PythonScriptWrapper(object):
                             log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
                             log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
 #                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
+                        elif (child.attrib['name'] == 'accepted_type' and child.attrib['value'] == 'file'):
+                            
+                            log.info(f"***** getattr(self.options, input_name): {getattr(self.options, input_name)}")
+                            
+                            resource_obj = bq.load(getattr(self.options, input_name))
+                            xml_data.append(resource_obj)
+                            resource_name = resource_obj.name
+                            resource_dict = {'resource_obj': resource_obj, 'resource_name': resource_name}
+#                            xml_data.append(resource_dict)
+                            log.info(f"***** resource_dict['resource_obj'].uri: {resource_dict['resource_obj'].uri}")
+                            log.info(f"***** resource_obj: {resource_obj}")
+                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
+                            log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
 
                     except KeyError:
                         pass
@@ -203,9 +232,6 @@ class PythonScriptWrapper(object):
 
             return
 
-        #        input_image, heatmap, covid, pna, normal= predict_label(log, self.image_name)
-        #        heatmap=np.transpose(heatmap, (1, 2, 0))
-        #        input_image=np.transpose(input_image, (1, 2, 0))
 
         input_file_path = os.path.join(os.getcwd(), self.inputs[0].name)
         # output_folder_path = os.path.join(os.path.dirname(os.getcwd()), 'outputs')
@@ -217,25 +243,27 @@ class PythonScriptWrapper(object):
         # SAMPLE LOG
         # INFO:bq.modules:Output image path: /module/500px-Manatee_at_Sea_World_Orlando_Mar_10._out.jpg
 
-
-
-        #        img = nib.Nifti1Image(input_image*heatmap, np.eye(4))  # Save axis for data (just identity)
-        #
-        #        img.header.get_xyzt_units()
-        #        self.outfiles=self.image_name+'heatmap.nii'
-        #        img.to_filename(self.outfiles)  # Save as NiBabel file
-
-        #       z=input_image.shape[2]
-
         self.bqSession.update_mex('Returning results')
 
         bq.update_mex('Uploading Mask result')
-        self.out_image = self.upload_service(bq, out_data_path, data_type='image')
+
+        self.out_image = self.upload_service(bq, out_data_path, data_type='blob')
+#        self.out_image = self.upload_service(bq, out_data_path, data_type='image')
         #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
 
         #         self.output_resources.append(out_xml)
 
-        self.output_resources = self.get_xml_outputs(out_xml_value=(str(self.out_image.get('value'))))
+        self.output_resources = self.get_xml_outputs(out_xml_value=(self.out_image.get('value')))
+
+
+
+
+        #self.output_resources = [f"""<tag name="Metadata"\n               <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/>\n          </tag>\n"""]
+
+#        self.output_resources = ["""<tag name="Metadata">
+#                                                <tag name="Volumes Table" type="resource" value="%s"/>
+#                                                                            </tag>""" % self.out_image.get('value')]
+
         # self.output_resources = self.get_xml_data('outputs', out_xml_value=(str(self.out_image.get('value'))))
 
         # out_imgxml = """<tag name="EdgeImage" type="image" value="%s">

@@ -1,15 +1,18 @@
 import cv2
 import os
 from detection import canny_detector
+import numpy as np
 
 # Tunable parameters must have defaults!
 def run_module(input_file_path, output_folder_path, min_hysteresis=100, max_hysteresis=200): 
 
     ##### Preprocessing #####
-    img = cv2.imread(input_file_path, 0)
+    #img = cv2.imread(input_file_path, 0)
+    img = np.load(input_file_path)
     
     ##### Run algorithm #####
-    edges_detected = canny_detector(img, min_hysteresis, max_hysteresis)
+#    edges_detected = canny_detector(img, min_hysteresis, max_hysteresis)
+    
     
     ##### Save output #####
     
@@ -17,8 +20,9 @@ def run_module(input_file_path, output_folder_path, min_hysteresis=100, max_hyst
     file_name = os.path.split(input_file_path)[-1][:-4]
     
     # Generate desired output file name and path
-    output_file_path = "%s/%s_out.jpg" % (output_folder_path, file_name)
-    cv2.imwrite(output_file_path, edges_detected)
+    output_file_path = "%s/%s_out.npy" % (output_folder_path, file_name)
+#    cv2.imwrite(output_file_path, edges_detected)
+    np.save(output_file_path, img)
     
     ##### Return output file path #####  -> Important step
     return output_file_path

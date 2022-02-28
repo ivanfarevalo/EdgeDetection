@@ -3,11 +3,10 @@
              
      <tag name="inputs">
               
-          <tag name="resource_url" type="resource">
+          <tag name="npy_in" type="resource">
                <template>
-                    <tag name="label" value="Select Image"/>
-                    <tag name="accepted_type" value="image"/>
-                    <tag name="accepted_type" value="dataset"/>
+                    <tag name="label" value="npy in"/>
+                    <tag name="accepted_type" value="file"/>
                     <tag name="prohibit_upload" value="True"/>
                </template>
           </tag>
@@ -17,9 +16,9 @@
          
      <tag name="outputs">
               
-          <tag name="OutImage" type="image">
+          <tag name="npy_out" type="resource">
                <template>
-                    <tag name="label" value="Edge Image"/>
+                    <tag name="label" value="npy out"/>
                </template>
           </tag>
      </tag>
@@ -56,5 +55,5 @@
          
      <tag name="authors" type="string" value="Ivan"/>
          
-     <tag name="description" type="string" value="This module finds edges in images"/>
+     <tag name="description" type="string" value="Edge Detector"/>
 </module>
