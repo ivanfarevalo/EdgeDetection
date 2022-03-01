@@ -247,22 +247,39 @@ class PythonScriptWrapper(object):
 
         bq.update_mex('Uploading Mask result')
 
-        self.out_image = self.upload_service(bq, out_data_path, data_type='blob')
+        self.out_image = self.upload_service(bq, out_data_path, data_type='file')
 #        self.out_image = self.upload_service(bq, out_data_path, data_type='image')
         #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
 
         #         self.output_resources.append(out_xml)
 
-        self.output_resources = self.get_xml_outputs(out_xml_value=(self.out_image.get('value')))
+#        self.output_resources = self.get_xml_outputs(out_xml_value=(self.out_image.get('value')))
 
 
+#        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s">
+#                                            <template>
+#                                                <tag name="label" value="npy out"/>
+#                                            </template>
+#                                     </tag>""" % self.out_image.get('value')]
 
+        self.output_resources = ["""<tag name="Outputs">
+                                                <tag name="Npy Out" type="resource" value="%s"/>
+                                                <tag name="npy_out2" type="resource" value="%s"/>
+                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value'))]
 
-        #self.output_resources = [f"""<tag name="Metadata"\n               <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/>\n          </tag>\n"""]
+#        self.output_resources.append("""<tag name="Metadata2">
+#                                                <tag name="npy_out3" type="resource" value="%s"/>
+#                                                <tag name="npy_out4" type="resource" value="%s"/>
+#                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value')))
+
+#        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s"/>""" % self.out_image.get('value')]
+
+#        self.output_resources = [f"""<tag name="Metadata"\n               <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/>\n          </tag>\n"""]
+#        self.output_resources = [f"""<tag name="Metadata" <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/> </tag>"""]
 
 #        self.output_resources = ["""<tag name="Metadata">
-#                                                <tag name="Volumes Table" type="resource" value="%s"/>
-#                                                                            </tag>""" % self.out_image.get('value')]
+#                                            <tag name="Volumes Table" type="resource" value="%s"/>
+#                                    </tag>""" % self.out_image.get('value')]
 
         # self.output_resources = self.get_xml_data('outputs', out_xml_value=(str(self.out_image.get('value'))))
 
