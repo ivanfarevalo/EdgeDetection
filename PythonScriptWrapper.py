@@ -30,7 +30,7 @@ class ScriptError(Exception):
 
 class PythonScriptWrapper(object):
     def __init__(self):
-        for file in os.listdir(): # Might change it to read parameters from .JSON
+        for file in os.listdir(): # Might change it to read parameters from .JSON or from modulePath variable
             if file.endswith(".xml"):
                 # Get xml file name as module name
                 if hasattr(self, 'module_name'):
@@ -116,71 +116,111 @@ class PythonScriptWrapper(object):
         return xml_data
 
 
-    def get_xml_inputs(self, bq): #TODO Not hardcoded resource_url
-        xml_data = []
+    def fetch_input_resources(self, bq): #TODO Not hardcoded resource_url
+        """
+        Reads input resources from xml, fetches them from Bisque, and copies them to module container for inference
 
-        for node in self.root:  # Iterate tree to parse necessary information
-            # print(node.tag, node.attrib)
-            if node.attrib['name'] == 'inputs':
+        """
 
-                for child in node.iter():
-                    # <tag name="resource_url" type="resource">
-                    # input_name = ''
+        input_bq_objs = []
 
-                    try:
-                        if (child.attrib['name'] and child.attrib['type'] == 'resource'):
-                            input_name = child.attrib['name']
-                    except KeyError:
-                        pass
+        log.info('***** Options: %s' % (self.options))
+        
+        inputs_tag = self.root.find("./*[@name='inputs']")
+#        print(inputs_tag)
+        for input_resource in inputs_tag.findall("./*[@type='resource']"):
+            # for child in node.iter():
+            print(input_resource.tag, input_resource.attrib)
 
-                    try:
-                        if (child.attrib['name'] == 'accepted_type' and child.attrib['value'] == 'image'):
-                            print("INPUT OF TYPE IMAGE!")
+            input_name = input_resource.attrib['name']
+            log.info(f"***** Processing resource named: {input_name}")
+            resource_obj = bq.load(getattr(self.options, input_name))
+            """
+            bq.load returns bqapi.bqclass.BQImage object. Ex:
+            resource_obj: (image:name=whale.jpeg,value=file://admin/2022-02-25/whale.jpeg,type=None,uri=http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX,ts=2022-02-25T17:05:13.289578,resource_uniq=00-pkGCYS4SPCtQVcdZUUj4sX)
 
-                            # resource_url = bq.load(self.options.resource_url)
+            resource_obj: (resource:name=yolov5s.pt,type=None,uri=http://128.111.185.163:8080/data_service/00-D9e6xVPhU93JtZjZZtwkLm,ts=2022-02-26T01:08:26.198330,resource_uniq=00-D9e6xVPhU93JtZjZZtwkLm) (PythonScriptWrapper.py:137)
 
-#                            log.info(f"***** self.options.resource_url: {self.options.resource_url}")
-                            
-                            resource_obj = bq.load(getattr(self.options, input_name))
-                            # bq.load returns bqapi.bqclass.BQImage object. Ex:
-                            # resource_obj: (image:name=500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg,value=file://admin/2022-02-25/500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg,type=None,uri=http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX,ts=2022-02-25T17:05:13.289578,resource_uniq=00-pkGCYS4SPCtQVcdZUUj4sX)
+            resource_obj: (resource:name=test.npy,type=None,uri=http://128.111.185.163:8080/data_service/00-EC53Rcbj8do86aXpea2cgW,ts=2022-02-26T01:17:12.312780,resource_uniq=00-EC53Rcbj8do86aXpea2cgW) (PythonScriptWrapper.py:137)
+            """
 
-                            # ***** resource_obj: (resource:name=yolov5s.pt,type=None,uri=http://128.111.185.163:8080/data_service/00-D9e6xVPhU93JtZjZZtwkLm,ts=2022-02-26T01:08:26.198330,resource_uniq=00-D9e6xVPhU93JtZjZZtwkLm) (PythonScriptWrapper.py:137)
+            input_bq_objs.append(resource_obj)
+            log.info(f"***** resource_obj: {resource_obj}")
+            log.info(f"***** resource_obj.uri: {resource_obj.uri}")
+            log.info(f"***** type(resource_obj): {type(resource_obj.uri)}")
 
-                            # resource_obj: (resource:name=test.npy,type=None,uri=http://128.111.185.163:8080/data_service/00-EC53Rcbj8do86aXpea2cgW,ts=2022-02-26T01:17:12.312780,resource_uniq=00-EC53Rcbj8do86aXpea2cgW) (PythonScriptWrapper.py:137)
-                            
-                            resource_name = resource_obj.name
-#                            resource_name = resource_obj.__dict__['name']
+            # Saves resource to module container at specified dest path
+            fetch_blob_output = fetch_blob(bq, resource_obj.uri, dest=os.path.join(cwd, resource_obj.name))
+            log.info(f"***** fetch_blob_output: {fetch_blob_output}") 
 
-                            xml_data.append(resource_obj)
-                            resource_dict = {'resource_obj': resource_obj, 'resource_name': resource_name}
-#                            xml_data.append(resource_dict)
-                            log.info(f"***** resource_dict['resource_obj'].uri: {resource_dict['resource_obj'].uri}")
-                            log.info(f"***** resource_obj: {resource_obj}")
-                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
-                            log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
+
+
+
+        return input_bq_objs
+
+            
+
+#        for node in self.root:  # Iterate tree to parse necessary information
+#            # print(node.tag, node.attrib)
+#            if node.attrib['name'] == 'inputs':
+#
+#                for child in node.iter():
+#                    # <tag name="resource_url" type="resource">
+#                    # input_name = ''
+#
+#                    try:
+#                        if (child.attrib['name'] and child.attrib['type'] == 'resource'):
+#                            input_name = child.attrib['name']
+#                    except KeyError:
+#                        pass
+#
+#                    try:
+#                        if (child.attrib['name'] == 'accepted_type' and child.attrib['value'] == 'image'):
+#                            print("INPUT OF TYPE IMAGE!")
+#
+#                            # resource_url = bq.load(self.options.resource_url)
+#
+##                            log.info(f"***** self.options.resource_url: {self.options.resource_url}")
+#                            
+#                            resource_obj = bq.load(getattr(self.options, input_name))
+#                            # bq.load returns bqapi.bqclass.BQImage object. Ex:
+#                            # resource_obj: (image:name=whale.jpeg,value=file://admin/2022-02-25/whale.jpeg,type=None,uri=http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX,ts=2022-02-25T17:05:13.289578,resource_uniq=00-pkGCYS4SPCtQVcdZUUj4sX)
+#
+#                            # ***** resource_obj: (resource:name=yolov5s.pt,type=None,uri=http://128.111.185.163:8080/data_service/00-D9e6xVPhU93JtZjZZtwkLm,ts=2022-02-26T01:08:26.198330,resource_uniq=00-D9e6xVPhU93JtZjZZtwkLm) (PythonScriptWrapper.py:137)
+#
+#                            # resource_obj: (resource:name=test.npy,type=None,uri=http://128.111.185.163:8080/data_service/00-EC53Rcbj8do86aXpea2cgW,ts=2022-02-26T01:17:12.312780,resource_uniq=00-EC53Rcbj8do86aXpea2cgW) (PythonScriptWrapper.py:137)
+#                            
+#                            resource_name = resource_obj.name
+##                            resource_name = resource_obj.__dict__['name']
+#
+#                            xml_data.append(resource_obj)
+#                            resource_dict = {'resource_obj': resource_obj, 'resource_name': resource_name}
+##                            xml_data.append(resource_dict)
+#                            log.info(f"***** resource_dict['resource_obj'].uri: {resource_dict['resource_obj'].uri}")
+#                            log.info(f"***** resource_obj: {resource_obj}")
 #                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
-                        elif (child.attrib['name'] == 'accepted_type' and child.attrib['value'] == 'file'):
-                            
-                            log.info(f"***** getattr(self.options, input_name): {getattr(self.options, input_name)}")
-                            
-                            resource_obj = bq.load(getattr(self.options, input_name))
-                            xml_data.append(resource_obj)
-                            resource_name = resource_obj.name
-                            resource_dict = {'resource_obj': resource_obj, 'resource_name': resource_name}
-#                            xml_data.append(resource_dict)
-                            log.info(f"***** resource_dict['resource_obj'].uri: {resource_dict['resource_obj'].uri}")
-                            log.info(f"***** resource_obj: {resource_obj}")
-                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
-                            log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
-
-                    except KeyError:
-                        pass
-
-        log.info(f"***** Input XML data: {xml_data}")
-        # SAMPLE LOG
-        # INFO:bq.modules:***** Input XML data: [{'resource_obj': (image:http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX), 'resource_name': '500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg'}]
-        return xml_data
+#                            log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
+##                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
+#                        elif (child.attrib['name'] == 'accepted_type' and child.attrib['value'] == 'file'):
+#                            
+#                            log.info(f"***** getattr(self.options, input_name): {getattr(self.options, input_name)}")
+#                            
+#                            resource_obj = bq.load(getattr(self.options, input_name))
+#                            xml_data.append(resource_obj)
+#                            resource_name = resource_obj.name
+#                            resource_dict = {'resource_obj': resource_obj, 'resource_name': resource_name}
+##                            xml_data.append(resource_dict)
+#                            log.info(f"***** resource_dict['resource_obj'].uri: {resource_dict['resource_obj'].uri}")
+#                            log.info(f"***** resource_obj: {resource_obj}")
+#                            log.info(f"***** resource_dict['resource_obj']: {resource_dict['resource_obj']}")
+#                            log.info(f"***** type(resource_dict['resource_obj']): {type(resource_dict['resource_obj'])}")
+#
+#                    except KeyError:
+#                        pass
+#
+#        log.info(f"***** Input XML data: {xml_data}")
+#        # SAMPLE LOG
+#        # INFO:bq.modules:***** Input XML data: [{'resource_obj': (image:http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX), 'resource_name': 'whale.jpeg'}]
 
     def pre_process(self, bq):
         """
@@ -192,10 +232,10 @@ class PythonScriptWrapper(object):
 
         log.info('Options: %s' % (self.options))
 
-        self.inputs = self.get_xml_inputs(bq=bq)
+        self.input_resource_objs = self.fetch_input_resources(bq=bq)
 
         # Saves and log input
-        for input in self.inputs:
+        for input in self.input_resource_objs:
 
             log.info("Process resource as %s" % input.name)
             log.info("Resource meta: %s" % input.uri)
@@ -203,8 +243,8 @@ class PythonScriptWrapper(object):
             log.info("Current work directory: %s" % (cwd))
 
             # SAMPLE LOG
-            # INFO:bq.modules:Process resource as 500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg
-            # INFO:bq.modules:Resource meta: (image:name=500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg,value=file://admin/2022-02-25/500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg,type=None,uri=http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX,ts=2022-02-25T17:05:13.289578,resource_uniq=00-pkGCYS4SPCtQVcdZUUj4sX)
+            # INFO:bq.modules:Process resource as whale.jpeg
+            # INFO:bq.modules:Resource meta: (image:name=whale.jpeg,value=file://admin/2022-02-25/whale.jpeg,type=None,uri=http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX,ts=2022-02-25T17:05:13.289578,resource_uniq=00-pkGCYS4SPCtQVcdZUUj4sX)
             # INFO:bq.modules:Current work directory: /module
 
             # Saves resource to module container
@@ -214,7 +254,7 @@ class PythonScriptWrapper(object):
             log.info(f"Output of fetch blob in pre_process : {result}")
 
             # SAMPLE LOG
-            # INFO:bq.modules:Output of fetch blob in pre_process : {'http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX': './500px-Manatee_at_Sea_World_Orlando_Mar_10.jpeg'}
+            # INFO:bq.modules:Output of fetch blob in pre_process : {'http://128.111.185.163:8080/data_service/00-pkGCYS4SPCtQVcdZUUj4sX': './whale.jpeg'}
 
 
     def run(self):
@@ -223,17 +263,37 @@ class PythonScriptWrapper(object):
 
         """
         bq = self.bqSession
+        log.info('***** self.options: %s' % (self.options))
+        
         try:
-            bq.update_mex('Pre-process the images')
-            self.pre_process(bq)
+            bq.update_mex('Fetching inputs from xml')
+            self.input_resource_objs = self.fetch_input_resources(bq)
         except (Exception, ScriptError) as e:
-            log.exception("Exception during pre_process")
-            bq.fail_mex(msg="Exception during pre-process: %s" % str(e))
-
+            log.exception("***** Exception while fetching inputs from xml")
+            bq.fail_mex(msg="Exception while fetching inputs from xml: %s" % str(e))
             return
 
+        # Make input file paths dictionary
+        input_path_dict {}
+        inputs_dir_location = os.getcwd() # use current directory to store input data for now, if changed, might have to look at teardown funct too
+        outputs_dir_location = os.getcwd() # use current directory to store output data for now, if changed, must look at teardown funct too
 
-        input_file_path = os.path.join(os.getcwd(), self.inputs[0].name)
+        for input_resource_obj in self.input_resource_objs:
+            input_path_dict[input_resource_obj.name] = os.path.join(inputs_dir_location, input_resource_obj.name)
+
+
+        output_data_path_dict = run_module(input_path_dict, outputs_dir_location) 
+
+
+            
+
+
+            
+
+
+
+
+        input_file_path = os.path.join(os.getcwd(), self.input_resource_objs[0].name)
         # output_folder_path = os.path.join(os.path.dirname(os.getcwd()), 'outputs')
         output_folder_path = os.getcwd()
 
@@ -241,7 +301,7 @@ class PythonScriptWrapper(object):
         log.info("Output image path: %s" % out_data_path)
 
         # SAMPLE LOG
-        # INFO:bq.modules:Output image path: /module/500px-Manatee_at_Sea_World_Orlando_Mar_10._out.jpg
+        # INFO:bq.modules:Output image path: /module/whale._out.jpg
 
         self.bqSession.update_mex('Returning results')
 
