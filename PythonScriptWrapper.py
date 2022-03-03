@@ -84,6 +84,46 @@ class PythonScriptWrapper(object):
     # reducer_path = os.path.join(kw.get('stagingPath', ''), 'reducer.sav')
     # reducer_path = bq.fetchblob(reducer_url, path=reducer_path)
 
+    
+    
+    def upload_results(self, bq):
+        """
+        Reads output specs from xml and uploads results to Bisque using correct service
+        """
+
+        output_resources = []
+        
+        # Get outputs tag and its nonimage child tag
+        outputs_tag = self.root.find("./*[@name='outputs']")
+        print(outputs_tag)
+        nonimage_tag = outputs_tag.find("./*[@name='NonImage']")
+        print(nonimage_tag.tag, nonimage_tag.attrib)
+        
+        # Upload each resource with the corresponding service
+        for resource in (outputs_tag.findall("./*[@type='image']") + nonimage_tag.findall(".//*[@type]")):
+            print(resource.tag, resource.attrib)
+            print("NonImage type output with name %s" % resource.attrib['name'])
+            resource_name = resource.attrib['name']
+            resource_type = resource.attrib['type']
+            resource_path = self.output_data_path_dict[resource_name]
+            log.info(f"***** Uploading output {resource_type} '{resource_name}' from {resource_path} ...")
+
+            # Upload output image to Bisque and get resource uri
+            output_resource_uri = self.upload_service(bq, resource_path, data_type=resource_type)
+            log.info(f"***** Uploaded output {resource_type} '{resource_name}' to {output_resource_uri}")
+
+            # Set the value attribute of the each resource's tag to its corresponding resource uri
+            resource.set('value', output_resource_uri)
+            output_resource_xml = ET.tostring(resource).decode('utf-8')
+            output_resources.append(output_resource_xml)
+    
+        log.debug(f"***** Output Resources xml : output_resources = {output_resources}")
+        # SAMPLE LOG
+        # ['<tag name="OutImage" type="image" value="http://128.111.185.163:8080/data_service/00-ExhzBeQiaX5F858qNjqXzM">\n               <template>\n                    <tag name="label" value="Edge Image" />\n               </template>\n          </tag>\n     ']
+        return output_resources
+    
+    
+    
     def get_xml_outputs(self, out_xml_value):
         xml_data = []
 
@@ -152,9 +192,6 @@ class PythonScriptWrapper(object):
             # Saves resource to module container at specified dest path
             fetch_blob_output = fetch_blob(bq, resource_obj.uri, dest=os.path.join(cwd, resource_obj.name))
             log.info(f"***** fetch_blob_output: {fetch_blob_output}") 
-
-
-
 
         return input_bq_objs
 
@@ -265,108 +302,119 @@ class PythonScriptWrapper(object):
         bq = self.bqSession
         log.info('***** self.options: %s' % (self.options))
         
+        # Fetch input resources
         try:
-            bq.update_mex('Fetching inputs from xml')
+            bq.update_mex('Fetching inputs specified in xml')
             self.input_resource_objs = self.fetch_input_resources(bq)
         except (Exception, ScriptError) as e:
-            log.exception("***** Exception while fetching inputs from xml")
-            bq.fail_mex(msg="Exception while fetching inputs from xml: %s" % str(e))
+            log.exception("***** Exception while fetching inputs specified in xml")
+            bq.fail_mex(msg="Exception while fetching inputs specified in xml: %s" % str(e))
             return
 
-        # Make input file paths dictionary
+        # Make a dictionary that contains the paths of the input resources
         input_path_dict {}
-        inputs_dir_location = os.getcwd() # use current directory to store input data for now, if changed, might have to look at teardown funct too
-        outputs_dir_location = os.getcwd() # use current directory to store output data for now, if changed, must look at teardown funct too
+        # Use current directory to store input and output data for now, if changed, might have to look at teardown funct too
+        inputs_dir_location = os.getcwd() 
+        outputs_dir_location = os.getcwd() 
 
         for input_resource_obj in self.input_resource_objs:
             input_path_dict[input_resource_obj.name] = os.path.join(inputs_dir_location, input_resource_obj.name)
+        
+        # Run module from BQ_run_module and get get a dictionary that contains the paths to the module results
+        try:
+            bq.update_mex('Running module')
+            self.output_data_path_dict = run_module(input_path_dict, outputs_dir_location) 
+        except (Exception, ScriptError) as e:
+            log.exception("***** Exception while running module from BQ_run_module")
+            bq.fail_mex(msg="Exception while running module from BQ_run_module: %s" % str(e))
+            return
 
-
-        output_data_path_dict = run_module(input_path_dict, outputs_dir_location) 
-
-
-            
-
-
-            
-
-
-
-
-        input_file_path = os.path.join(os.getcwd(), self.input_resource_objs[0].name)
-        # output_folder_path = os.path.join(os.path.dirname(os.getcwd()), 'outputs')
-        output_folder_path = os.getcwd()
-
-        out_data_path = run_module(input_file_path, output_folder_path)  # Path to output files HARDCODED FOR NOW
-        log.info("Output image path: %s" % out_data_path)
-
-        # SAMPLE LOG
-        # INFO:bq.modules:Output image path: /module/whale._out.jpg
-
-        self.bqSession.update_mex('Returning results')
-
-        bq.update_mex('Uploading Mask result')
-
-        self.out_image = self.upload_service(bq, out_data_path, data_type='file')
-#        self.out_image = self.upload_service(bq, out_data_path, data_type='image')
-        #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
-
-        #         self.output_resources.append(out_xml)
-
-#        self.output_resources = self.get_xml_outputs(out_xml_value=(self.out_image.get('value')))
-
-
-#        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s">
-#                                            <template>
-#                                                <tag name="label" value="npy out"/>
-#                                            </template>
-#                                     </tag>""" % self.out_image.get('value')]
-
-        self.output_resources = ["""<tag name="Outputs">
-                                                <tag name="Npy Out" type="resource" value="%s"/>
-                                                <tag name="npy_out2" type="resource" value="%s"/>
-                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value'))]
-
-#        self.output_resources.append("""<tag name="Metadata2">
-#                                                <tag name="npy_out3" type="resource" value="%s"/>
-#                                                <tag name="npy_out4" type="resource" value="%s"/>
-#                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value')))
-
-#        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s"/>""" % self.out_image.get('value')]
-
-#        self.output_resources = [f"""<tag name="Metadata"\n               <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/>\n          </tag>\n"""]
-#        self.output_resources = [f"""<tag name="Metadata" <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/> </tag>"""]
-
-#        self.output_resources = ["""<tag name="Metadata">
-#                                            <tag name="Volumes Table" type="resource" value="%s"/>
-#                                    </tag>""" % self.out_image.get('value')]
-
-        # self.output_resources = self.get_xml_data('outputs', out_xml_value=(str(self.out_image.get('value'))))
-
-        # out_imgxml = """<tag name="EdgeImage" type="image" value="%s">
-        #                 <template>
-        #                   <tag name="label" value="Edge Image" />
-        #                 </template>
-        #               </tag>""" % (str(self.out_image.get('value')))
-
-        #        out_xml = """<tag name="Metadata">
-        #                    <tag name="Filename" type="string" value="%s"/>
-        #                    <tag name="Depth" type="string" value="%s"/>
-        #                     <tag name="Covid" type="string" value="%s"/>
-        #                     <tag name="Pneumonia" type="string" value="%s"/>
-        #                     <tag name="normal" type="string" value="%s"/>
-        #                     </tag>""" % (self.image_name, str(z), str(covid), str(pna), str(normal))
-
-        #        outputs = [out_imgxml, out_xml]
-        #         outputs = [out_imgxml]
-        log.debug(f"***** self.output_resources = {self.output_resources}")
-        # SAMPLE LOG
-        # ['<tag name="OutImage" type="image" value="http://128.111.185.163:8080/data_service/00-ExhzBeQiaX5F858qNjqXzM">\n               <template>\n                    <tag name="label" value="Edge Image" />\n               </template>\n          </tag>\n     ']
-
-
-        # save output back to BisQue
-        # for output in outputs:
-        #     self.output_resources.append(output)
+        # Upload results to Bisque
+        try:
+            bq.update_mex('Uploading results to Bisque')
+            self.output_resources = self.upload_results()
+        except (Exception, ScriptError) as e:
+            log.exception("***** Exception while uploading results to Bisque")
+            bq.fail_mex(msg="Exception while uploading results to Bisque: %s" % str(e))
+            return
+        
+        
+#        for output_name in self.output_data_path_dict:
+#            log.info(f"***** Output data path for '{output_name}': {self.output_data_path_dict[output_name]}")
+#            
+#        # output_folder_path = os.path.join(os.path.dirname(os.getcwd()), 'outputs')
+#        output_folder_path = os.getcwd()
+#
+#        out_data_path = run_module(input_file_path, output_folder_path)  # Path to output files HARDCODED FOR NOW
+#        log.info("Output image path: %s" % out_data_path)
+#
+#        # SAMPLE LOG
+#        # INFO:bq.modules:Output image path: /module/whale._out.jpg
+#
+#        self.bqSession.update_mex('Returning results')
+#
+#        bq.update_mex('Uploading Mask result')
+#
+#        self.out_image = self.upload_service(bq, out_data_path, data_type='file')
+##        self.out_image = self.upload_service(bq, out_data_path, data_type='image')
+#        #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
+#
+#        #         self.output_resources.append(out_xml)
+#
+##        self.output_resources = self.get_xml_outputs(out_xml_value=(self.out_image.get('value')))
+#
+#
+##        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s">
+##                                            <template>
+##                                                <tag name="label" value="npy out"/>
+##                                            </template>
+##                                     </tag>""" % self.out_image.get('value')]
+#
+#        self.output_resources = ["""<tag name="Outputs">
+#                                                <tag name="Npy Out" type="resource" value="%s"/>
+#                                                <tag name="npy_out2" type="resource" value="%s"/>
+#                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value'))]
+#
+##        self.output_resources.append("""<tag name="Metadata2">
+##                                                <tag name="npy_out3" type="resource" value="%s"/>
+##                                                <tag name="npy_out4" type="resource" value="%s"/>
+##                                     </tag>""" % (self.out_image.get('value'), self.out_image.get('value')))
+#
+##        self.output_resources = ["""<tag name="npy_out" type="resource" value="%s"/>""" % self.out_image.get('value')]
+#
+##        self.output_resources = [f"""<tag name="Metadata"\n               <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/>\n          </tag>\n"""]
+##        self.output_resources = [f"""<tag name="Metadata" <tag name="npy_out" type="resource" value="{self.out_image.get('value')}"/> </tag>"""]
+#
+##        self.output_resources = ["""<tag name="Metadata">
+##                                            <tag name="Volumes Table" type="resource" value="%s"/>
+##                                    </tag>""" % self.out_image.get('value')]
+#
+#        # self.output_resources = self.get_xml_data('outputs', out_xml_value=(str(self.out_image.get('value'))))
+#
+#        # out_imgxml = """<tag name="EdgeImage" type="image" value="%s">
+#        #                 <template>
+#        #                   <tag name="label" value="Edge Image" />
+#        #                 </template>
+#        #               </tag>""" % (str(self.out_image.get('value')))
+#
+#        #        out_xml = """<tag name="Metadata">
+#        #                    <tag name="Filename" type="string" value="%s"/>
+#        #                    <tag name="Depth" type="string" value="%s"/>
+#        #                     <tag name="Covid" type="string" value="%s"/>
+#        #                     <tag name="Pneumonia" type="string" value="%s"/>
+#        #                     <tag name="normal" type="string" value="%s"/>
+#        #                     </tag>""" % (self.image_name, str(z), str(covid), str(pna), str(normal))
+#
+#        #        outputs = [out_imgxml, out_xml]
+#        #         outputs = [out_imgxml]
+#        log.debug(f"***** self.output_resources = {self.output_resources}")
+#        # SAMPLE LOG
+#        # ['<tag name="OutImage" type="image" value="http://128.111.185.163:8080/data_service/00-ExhzBeQiaX5F858qNjqXzM">\n               <template>\n                    <tag name="label" value="Edge Image" />\n               </template>\n          </tag>\n     ']
+#
+#
+#        # save output back to BisQue
+#        # for output in outputs:
+#        #     self.output_resources.append(output)
 
     def setup(self):
         """
