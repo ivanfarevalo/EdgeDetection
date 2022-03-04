@@ -26,7 +26,7 @@
          
      <tag name="execute_options">
                   
-          <tag name="iterable" type="dataset" value="image_url"/>
+          <tag name="iterable" type="dataset" value="resource_url"/>
               
      </tag>
          
@@ -49,6 +49,8 @@
           <tag name="css" type="file" value="webapp.css"/>
               
      </tag>
+
+     <tag name="help" type="file" value="public/help.html" />
          
      <tag name="thumbnail" type="file" value="public/thumbnail.jpg"/>
             
