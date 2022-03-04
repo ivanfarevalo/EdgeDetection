@@ -3,9 +3,25 @@
              
      <tag name="inputs">
               
-          <tag name="npy_in" type="resource">
+          <tag name="Input Image" type="resource">
                <template>
-                    <tag name="label" value="npy in"/>
+                    <tag name="label" value="Input Image"/>
+                    <tag name="accepted_type" value="image"/>
+                    <tag name="accepted_type" value="dataset"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input CSV" type="resource">
+               <template>
+                    <tag name="label" value="Input CSV"/>
+                    <tag name="accepted_type" value="table"/>
+                    <tag name="accepted_type" value="dataset"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input Npy" type="resource">
+               <template>
+                    <tag name="label" value="Input Npy"/>
                     <tag name="accepted_type" value="file"/>
                     <tag name="prohibit_upload" value="True"/>
                </template>
@@ -15,21 +31,23 @@
      </tag>
          
      <tag name="outputs">
-              
-          <tag name="Outputs">
-            <template>
-                <tag name="label" value="   "/>
-                <tag name="Npy Out" type="file"/>
-                <tag name="npy_out2" type="file"/>
-            </template>
+                  
+          <tag name="NonImage">
+                           
+               <template>
+                                    
+                    <tag name="label" value="Outputs"/>
+                                
+                    <tag name="CSV Out" type="table"/>
+                    <tag name="Npy Out" type="file"/>
+               </template>
+                       
           </tag>
-
-          <tag name="Metadata2">
-            <template>
-                <tag name="label" value="Metadata Test"/>
-                <tag name="npy_out3" type="file"/>
-                <tag name="npy_out4" type="file"/>
-            </template>
+              
+          <tag name="Image Out" type="image">
+               <template>
+                    <tag name="label" value="Image Out"/>
+               </template>
           </tag>
      </tag>
          
@@ -65,5 +83,5 @@
          
      <tag name="authors" type="string" value="Ivan"/>
          
-     <tag name="description" type="string" value="Edge Detector"/>
+     <tag name="description" type="string" value="Trial MIMO module"/>
 </module>

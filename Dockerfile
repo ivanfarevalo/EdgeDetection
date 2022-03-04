@@ -14,6 +14,7 @@ RUN apt-get install ffmpeg libsm6 libxext6 -y
 # ===================Module Dependencies============================
 
 RUN pip3 install cycler imageio kiwisolver matplotlib numpy opencv-python Pillow pyparsing python-dateutil scipy 
+RUN pip3 install pandas
 
 # ===================Copy Source Code===============================
 

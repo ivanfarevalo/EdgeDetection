@@ -92,6 +92,7 @@ class PythonScriptWrapper(object):
         """
 
         output_resources = []
+        non_image_value = {}
         
         # Get outputs tag and its nonimage child tag
         outputs_tag = self.root.find("./*[@name='outputs']")
@@ -100,7 +101,7 @@ class PythonScriptWrapper(object):
         print(nonimage_tag.tag, nonimage_tag.attrib)
         
         # Upload each resource with the corresponding service
-        for resource in (outputs_tag.findall("./*[@type='image']") + nonimage_tag.findall(".//*[@type]")):
+        for resource in (nonimage_tag.findall(".//*[@type]") + outputs_tag.findall("./*[@type='image']")): 
             print(resource.tag, resource.attrib)
             print("NonImage type output with name %s" % resource.attrib['name'])
             resource_name = resource.attrib['name']
@@ -108,15 +109,47 @@ class PythonScriptWrapper(object):
             resource_path = self.output_data_path_dict[resource_name]
             log.info(f"***** Uploading output {resource_type} '{resource_name}' from {resource_path} ...")
 
-            # Upload output image to Bisque and get resource uri
-            output_resource_uri = self.upload_service(bq, resource_path, data_type=resource_type)
-            log.info(f"***** Uploaded output {resource_type} '{resource_name}' to {output_resource_uri}")
+            # Upload output resource to Bisque and get resource etree.Element
+            output_etree_Element = self.upload_service(bq, resource_path, data_type=resource_type)
+            log.info(f"***** Uploaded output {resource_type} '{resource_name}' to {output_etree_Element.get('value')}")
 
             # Set the value attribute of the each resource's tag to its corresponding resource uri
-            resource.set('value', output_resource_uri)
-            output_resource_xml = ET.tostring(resource).decode('utf-8')
-            output_resources.append(output_resource_xml)
-    
+            resource.set('value', output_etree_Element.get('value'))
+            
+            # Append image outputs to output resources list
+            if resource in outputs_tag.findall("./*[@type='image']"):
+                output_resource_xml = ET.tostring(resource).decode('utf-8')
+                output_resources.append(output_resource_xml)
+            else:
+                non_image_value[resource_name] = output_etree_Element.get('value')
+        # Append all nonimage outputs to output resource list
+#        output_resource_xml = ET.tostring(nonimage_tag).decode('utf-8')
+#        output_resources.append(output_resource_xml)
+
+        template_tag = nonimage_tag.find("./template")
+        nonimage_tag.remove(template_tag)
+        for resource in non_image_value:
+            ET.SubElement(nonimage_tag, 'tag', attrib={'name' : f"{resource}", 'type': 'resource', 'value': f"{non_image_value[resource]}"})
+
+        output_resource_xml = ET.tostring(nonimage_tag).decode('utf-8')
+        output_resources.append(output_resource_xml)
+
+#        log.info(f"***** non_image_value = {non_image_value}")
+#        outxml = f"""<tag name="NonImage">
+#                          <tag name="CSV Out" type="resource" value="{non_image_value['CSV Out']}"/>
+#                          <tag name="Npy Out" type="resource" value="{non_image_value['Npy Out']}"/>
+#                  </tag>""".replace('\n',' ')
+#
+#        output_resources.insert(0, outxml)
+
+
+
+#        outxml = f"""<tag name="NonImage">
+#                          <tag name="label" value="Outputs"/>
+#                          <tag name="CSV Out" type="table" value="{non_image_value['CSV Out']}"/>
+#                          <tag name="Npy Out" type="file" value="{non_image_value['Npy Out']}"/>
+#                  </tag>"""
+        
         log.debug(f"***** Output Resources xml : output_resources = {output_resources}")
         # SAMPLE LOG
         # ['<tag name="OutImage" type="image" value="http://128.111.185.163:8080/data_service/00-ExhzBeQiaX5F858qNjqXzM">\n               <template>\n                    <tag name="label" value="Edge Image" />\n               </template>\n          </tag>\n     ']
@@ -156,15 +189,16 @@ class PythonScriptWrapper(object):
         return xml_data
 
 
-    def fetch_input_resources(self, bq): #TODO Not hardcoded resource_url
+    def fetch_input_resources(self, bq, inputs_dir_path): #TODO Not hardcoded resource_url
         """
         Reads input resources from xml, fetches them from Bisque, and copies them to module container for inference
 
         """
 
-        input_bq_objs = []
-
         log.info('***** Options: %s' % (self.options))
+        
+        input_bq_objs = []
+        input_path_dict = {} # Dictionary that contains the paths of the input resources
         
         inputs_tag = self.root.find("./*[@name='inputs']")
 #        print(inputs_tag)
@@ -187,13 +221,18 @@ class PythonScriptWrapper(object):
             input_bq_objs.append(resource_obj)
             log.info(f"***** resource_obj: {resource_obj}")
             log.info(f"***** resource_obj.uri: {resource_obj.uri}")
-            log.info(f"***** type(resource_obj): {type(resource_obj.uri)}")
+            log.info(f"***** type(resource_obj): {type(resource_obj)}")
+
+            # Append uri to dictionary of input paths
+            input_path_dict[input_name] = os.path.join(inputs_dir_path, resource_obj.name)
 
             # Saves resource to module container at specified dest path
-            fetch_blob_output = fetch_blob(bq, resource_obj.uri, dest=os.path.join(cwd, resource_obj.name))
+            fetch_blob_output = fetch_blob(bq, resource_obj.uri, dest=input_path_dict[input_name])
             log.info(f"***** fetch_blob_output: {fetch_blob_output}") 
+        
+        log.info(f"***** Input path dictionary : {input_path_dict}")
 
-        return input_bq_objs
+        return input_path_dict
 
             
 
@@ -302,28 +341,24 @@ class PythonScriptWrapper(object):
         bq = self.bqSession
         log.info('***** self.options: %s' % (self.options))
         
+        # Use current directory to store input and output data for now, if changed, might have to look at teardown funct too
+        inputs_dir_path = os.getcwd() 
+        outputs_dir_path = os.getcwd() 
+
         # Fetch input resources
         try:
             bq.update_mex('Fetching inputs specified in xml')
-            self.input_resource_objs = self.fetch_input_resources(bq)
+            input_path_dict = self.fetch_input_resources(bq, inputs_dir_path)
         except (Exception, ScriptError) as e:
             log.exception("***** Exception while fetching inputs specified in xml")
             bq.fail_mex(msg="Exception while fetching inputs specified in xml: %s" % str(e))
             return
 
-        # Make a dictionary that contains the paths of the input resources
-        input_path_dict {}
-        # Use current directory to store input and output data for now, if changed, might have to look at teardown funct too
-        inputs_dir_location = os.getcwd() 
-        outputs_dir_location = os.getcwd() 
-
-        for input_resource_obj in self.input_resource_objs:
-            input_path_dict[input_resource_obj.name] = os.path.join(inputs_dir_location, input_resource_obj.name)
         
         # Run module from BQ_run_module and get get a dictionary that contains the paths to the module results
         try:
             bq.update_mex('Running module')
-            self.output_data_path_dict = run_module(input_path_dict, outputs_dir_location) 
+            self.output_data_path_dict = run_module(input_path_dict, outputs_dir_path) 
         except (Exception, ScriptError) as e:
             log.exception("***** Exception while running module from BQ_run_module")
             bq.fail_mex(msg="Exception while running module from BQ_run_module: %s" % str(e))
@@ -332,7 +367,7 @@ class PythonScriptWrapper(object):
         # Upload results to Bisque
         try:
             bq.update_mex('Uploading results to Bisque')
-            self.output_resources = self.upload_results()
+            self.output_resources = self.upload_results(bq)
         except (Exception, ScriptError) as e:
             log.exception("***** Exception while uploading results to Bisque")
             bq.fail_mex(msg="Exception while uploading results to Bisque: %s" % str(e))
