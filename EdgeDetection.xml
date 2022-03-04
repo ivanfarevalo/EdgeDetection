@@ -7,7 +7,6 @@
                <template>
                     <tag name="label" value="Input Image"/>
                     <tag name="accepted_type" value="image"/>
-                    <tag name="accepted_type" value="dataset"/>
                     <tag name="prohibit_upload" value="True"/>
                </template>
           </tag>
@@ -15,7 +14,6 @@
                <template>
                     <tag name="label" value="Input CSV"/>
                     <tag name="accepted_type" value="table"/>
-                    <tag name="accepted_type" value="dataset"/>
                     <tag name="prohibit_upload" value="True"/>
                </template>
           </tag>
@@ -26,8 +24,50 @@
                     <tag name="prohibit_upload" value="True"/>
                </template>
           </tag>
-          <tag name="mex_url" type="system-input"/>
-          <tag name="bisque_token" type="system-input"/>
+          <tag name="Input Image2" type="resource">
+               <template>
+                    <tag name="label" value="Input Image2"/>
+                    <tag name="accepted_type" value="image"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input Image3" type="resource">
+               <template>
+                    <tag name="label" value="Input Image3"/>
+                    <tag name="accepted_type" value="image"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input CSV2" type="resource">
+               <template>
+                    <tag name="label" value="Input CSV2"/>
+                    <tag name="accepted_type" value="table"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input CSV3" type="resource">
+               <template>
+                    <tag name="label" value="Input CSV3"/>
+                    <tag name="accepted_type" value="table"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input Npy2" type="resource">
+               <template>
+                    <tag name="label" value="Input Npy2"/>
+                    <tag name="accepted_type" value="file"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="Input Npy3" type="resource">
+               <template>
+                    <tag name="label" value="Input Npy3"/>
+                    <tag name="accepted_type" value="file"/>
+                    <tag name="prohibit_upload" value="True"/>
+               </template>
+          </tag>
+          <tag name="mex_url" type="system-input_resource"/>
+          <tag name="bisque_token" type="system-input_resource"/>
      </tag>
          
      <tag name="outputs">
@@ -40,6 +80,10 @@
                                 
                     <tag name="CSV Out" type="table"/>
                     <tag name="Npy Out" type="file"/>
+                    <tag name="CSV Out2" type="table"/>
+                    <tag name="CSV Out3" type="table"/>
+                    <tag name="Npy Out2" type="file"/>
+                    <tag name="Npy Out3" type="file"/>
                </template>
                        
           </tag>
@@ -47,6 +91,16 @@
           <tag name="Image Out" type="image">
                <template>
                     <tag name="label" value="Image Out"/>
+               </template>
+          </tag>
+          <tag name="Image Out2" type="image">
+               <template>
+                    <tag name="label" value="Image Out2"/>
+               </template>
+          </tag>
+          <tag name="Image Out3" type="image">
+               <template>
+                    <tag name="label" value="Image Out3"/>
                </template>
           </tag>
      </tag>
