@@ -16,10 +16,16 @@
      </tag>
          
      <tag name="outputs">
-              
-          <tag name="Edge Image" type="image">
+
+          <tag name="NonImage">
                <template>
-                    <tag name="label" value="Edge Image"/>
+                    <tag name="label" value="Outputs"/>
+               </template>
+          </tag>
+              
+          <tag name="Output Image" type="image">
+               <template>
+                    <tag name="label" value="Output Image"/>
                </template>
           </tag>
      </tag>

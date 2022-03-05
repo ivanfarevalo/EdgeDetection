@@ -45,6 +45,7 @@ class PythonScriptWrapper(object):
 
         output_resources = []
         non_image_value = {}
+        non_image_present = False
         
         # Get outputs tag and its nonimage child tag
         outputs_tag = self.root.find("./*[@name='outputs']")
@@ -73,16 +74,18 @@ class PythonScriptWrapper(object):
                 output_resource_xml = ET.tostring(resource).decode('utf-8')
                 output_resources.append(output_resource_xml)
             else:
+                non_image_present = True
                 non_image_value[resource_name] = output_etree_Element.get('value')
         
         # Append all nonimage outputs to NonImage tag and append it to output resource list
-        template_tag = nonimage_tag.find("./template")
-        nonimage_tag.remove(template_tag)
-        for resource in non_image_value:
-            ET.SubElement(nonimage_tag, 'tag', attrib={'name' : f"{resource}", 'type': 'resource', 'value': f"{non_image_value[resource]}"})
+        if non_image_present:
+            template_tag = nonimage_tag.find("./template")
+            nonimage_tag.remove(template_tag)
+            for resource in non_image_value:
+                ET.SubElement(nonimage_tag, 'tag', attrib={'name' : f"{resource}", 'type': 'resource', 'value': f"{non_image_value[resource]}"})
 
-        output_resource_xml = ET.tostring(nonimage_tag).decode('utf-8')
-        output_resources.append(output_resource_xml)
+            output_resource_xml = ET.tostring(nonimage_tag).decode('utf-8')
+            output_resources.append(output_resource_xml)
 
         log.debug(f"***** Output Resources xml : output_resources = {output_resources}")
         # SAMPLE LOG
